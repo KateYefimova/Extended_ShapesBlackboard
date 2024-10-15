@@ -1,16 +1,25 @@
-﻿#include <iostream>
+﻿
+#include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <map>
+#include <unordered_map>
 #include <sstream>
 #include <cctype>
 #include <memory>
+
 
 using namespace std;
 
 const int BOARD_WIDTH = 80;
 const int BOARD_HEIGHT = 25;
+
+std::string red = "\033[31m";
+std::string green = "\033[32m";
+std::string yellow = "\033[33m";
+std::string blue = "\033[34m";
+
 
 class Shapes {
 protected:
@@ -21,29 +30,45 @@ protected:
     string fillMode;
 public:
     Shapes(string s, int id, int x, int y, string color, string fillMode)
-        : shape(s), id(id), x(x), y(y), color(color), fillMode(fillMode) {}    virtual string getInfo() const = 0;
+        : shape(s), id(id), x(x), y(y), color(color), fillMode(fillMode) {}    
+    virtual string getInfo() const = 0;
     virtual string getShape() const { return shape; }
     int getID() const { return id; }
     int getX() const { return x; }
     int getY() const { return y; }
     void setX(int newX) {
-        x = newX; // Update x-coordinate
+        x = newX; 
     }
-
-    // Method to set the y-coordinate of the shape
     void setY(int newY) {
-        y = newY; // Update y-coordinate
+        y = newY; 
     }
     string getColor() const { return color; }
     string getFillMode() const { return fillMode; }
-    virtual void drawOnBoard(vector<vector<char>>& grid) const = 0;
+    virtual void drawOnBoard(vector<vector<string>>& grid) const = 0;
     virtual string getLoad() const = 0;
     virtual ~Shapes() {}
     virtual bool containsPoint(int x, int y) const = 0;
-   
-   
     virtual void setColor(const std::string& newColor) {
         color = newColor;
+    }
+    static std::string getColorCode(const std::string& colorName) {
+        std::unordered_map<std::string, std::string> colorCodes = {
+            {"black", "0"},
+            {"red", "1"},
+            {"green", "2"},
+            {"yellow", "3"},
+            {"blue", "4"},
+            {"magenta", "5"},
+            {"cyan", "6"},
+            {"white", "7"}
+        };
+
+        if (colorCodes.find(colorName) != colorCodes.end()) {
+            return "\033[3" + colorCodes[colorName] + "m"; // Text color only
+        }
+        else {
+            return ""; // Return empty string if the color is not found
+        }
     }
 };
 
@@ -55,12 +80,12 @@ public:
         : Shapes("Triangle", id, x, y, color, fillMode), height(h) {}
     bool containsPoint(int px, int py) const override {
         // Calculate the vertices of the triangle
-        int x1 = x;         // Top vertex (apex)
-        int y1 = y;         // Top vertex (apex)
-        int x2 = x - (height / 2); // Bottom left vertex
-        int y2 = y + height;        // Bottom left vertex
-        int x3 = x + (height / 2); // Bottom right vertex
-        int y3 = y + height;        // Bottom right vertex
+        int x1 = x;        
+        int y1 = y;        
+        int x2 = x - (height / 2); 
+        int y2 = y + height;       
+        int x3 = x + (height / 2); 
+        int y3 = y + height;       
 
         // Area of the triangle ABC
         double areaABC = abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2.0);
@@ -86,43 +111,52 @@ public:
     string getLoad() const override {
         return "Triangle: " + to_string(id) + " " + to_string(x) + " " + to_string(y) + " " + to_string(height) + " " + color + " " + fillMode;
     }
-    void drawOnBoard(vector<vector<char>>& grid) const override {
+    void drawOnBoard(vector<vector<string>>& grid) const override {
         int startX = x;
         int startY = y;
         int heightInt = height;
-        char colorSymbol = color.empty() ? '*' : color[0];
-       
+        char symbolB = color.empty() ? '*' : color[0]; // Default symbol
+        std::string colorCode = getColorCode(color); // Get the ANSI color code for the shape's color
+        std::string resetCode = "\033[0m"; // ANSI code to reset color
+        string symbol = colorCode + std::string(1, symbolB) + resetCode;
+        // Apply the color code, draw the shape, and then reset color
+        
         for (int i = 0; i < heightInt; ++i) {
-            int leftMost = startX - i; // Left boundary at the current level
-            int rightMost = startX + i; // Right boundary at the current level
-            int posY = startY + i; // Vertical position of the current level
+            int leftMost = startX - i;
+            int rightMost = startX + i;
+            int posY = startY + i;
 
             if (posY < BOARD_HEIGHT) {
                 if (fillMode == "fill") {
+                    // Fill between leftMost and rightMost
                     for (int j = leftMost; j <= rightMost; ++j) {
                         if (j >= 0 && j < BOARD_WIDTH) {
-                            grid[posY][j] = colorSymbol; // Fill the triangle with color symbol
+                            grid[posY][j]=symbol; // Set the symbol
                         }
                     }
                 }
-                
 
-                // Draw left and right sides
-                if (leftMost >= 0 && leftMost < BOARD_WIDTH)
-                    grid[posY][leftMost] = colorSymbol; // Left side of the triangle
+                // Set leftmost border
+                if (leftMost >= 0 && leftMost < BOARD_WIDTH) {
+                    grid[posY][leftMost]=symbol; // Set the symbol for left border
+                }
 
-                if (rightMost >= 0 && rightMost < BOARD_WIDTH && leftMost != rightMost)
-                    grid[posY][rightMost] = colorSymbol; // Right side of the triangle
+                // Set rightmost border
+                if (rightMost >= 0 && rightMost < BOARD_WIDTH && leftMost != rightMost) {
+                    grid[posY][rightMost]=symbol; // Set the symbol for right border
+                }
             }
         }
+
+        // Draw the base of the triangle
         for (int j = 0; j < 2 * heightInt - 1; ++j) {
             int baseX = x - heightInt + 1 + j;
             int baseY = y + heightInt - 1;
-            if (baseX >= 0 && baseX < BOARD_WIDTH && baseY < BOARD_HEIGHT)
-                grid[baseY][baseX] = colorSymbol;
+            if (baseX >= 0 && baseX < BOARD_WIDTH && baseY < BOARD_HEIGHT) {
+                grid[baseY][baseX] = symbol; // Set the symbol for the base
+            }
         }
-
-
+        
     }
     void setDimensions( double h) {
         height = h;
@@ -152,30 +186,39 @@ public:
     string getShape() const override {
         return "circle";
     }
-    void drawOnBoard(vector<vector<char>>& grid) const override {
-        char colorSymbol = color.empty() ? '*' : color[0];
+    void drawOnBoard(vector<vector<string>>& grid) const {
+        std::string colorCode = getColorCode(color);
+        std::string resetCode = "\033[0m";
+
+        char symbolChar = (color.empty() ? '*' : color[0]); // Rename this to avoid conflict
+        std::string coloredSymbol = colorCode + std::string(1, symbolChar) + resetCode;
+
         for (int i = -radius; i <= radius; ++i) {
             for (int j = -radius; j <= radius; ++j) {
-                int posX = static_cast<int>(x + i);
-                int posY = static_cast<int>(y + j);
-                if (posX >= 0 && posX < BOARD_WIDTH && posY >= 0 && posY < BOARD_HEIGHT) {
+                int posX = x + i; // Adjust X coordinate
+                int posY = y + j; // Adjust Y coordinate
+
+                if (posX >= 0 && posX < grid[0].size() && posY >= 0 && posY < grid.size()) {
                     double dist = i * i + j * j;
+
+                    // Fill the circle
                     if (fillMode == "fill") {
                         if (dist <= radius * radius) {
-                            grid[posY][posX] = colorSymbol; // Fill the rectangle with color symbol
+                           grid[posY][posX]= coloredSymbol;        // Store symbol
                         }
                     }
+                    // Draw the frame of the circle
                     else if (fillMode == "frame") {
                         if (dist >= (radius - 0.5) * (radius - 0.5) && dist <= (radius + 0.5) * (radius + 0.5)) {
-                            grid[posY][posX] = colorSymbol;
+                           grid[posY][posX]= coloredSymbol;        // Store symbol
                         }
                     }
-                    
-                   
                 }
             }
         }
+
     }
+
     void setDimensions( double r) {
         radius = r;
     }
@@ -213,53 +256,59 @@ public:
     void setDimensions(double s) {
         side = s;
     }
-    void drawOnBoard(vector<vector<char>>& grid) const override {
+    void drawOnBoard(vector<vector<string>>& grid) const override {
         int startX = x;
         int startY = y;
         int sideInt = side;
 
-        // Determine the drawing symbol based on the shape's color
-        char colorSymbol = color.empty() ? '*' : color[0]; // Default to '*' if color is empty
+        std::string colorCode = getColorCode(color);
+        std::string resetCode = "\033[0m";
+        char symbolB = color.empty() ? '*' : color[0]; // Default symbol if color is empty
+        string symbol = colorCode + std::string(1, symbolB) + resetCode;
+        // Fill the square
         if (fillMode == "fill") {
             for (int i = 0; i < sideInt; ++i) {
                 for (int j = 0; j < sideInt; ++j) {
-                    int posX = startX + j; // Calculate x position
-                    int posY = startY + i; // Calculate y position
+                    int posX = startX + j;
+                    int posY = startY + i;
 
-                    // Check bounds before drawing
-                    if (posX >= 0 && posX < BOARD_WIDTH && posY < BOARD_HEIGHT) {
-                        grid[posY][posX] = colorSymbol; // Fill the square with the color symbol
+                    if (posX >= 0 && posX < BOARD_WIDTH && posY >= 0 && posY < BOARD_HEIGHT) {
+                        grid[posY][posX]=symbol; // Store the symbol
                     }
                 }
             }
-
         }
-        // Fill the square
-        
-        // Optionally, you can still draw the outline if needed
+
+        // Draw the borders of the square
         for (int i = 0; i < sideInt; ++i) {
             // Top border
-            if (startY < BOARD_HEIGHT) {
-                if (startX + i < BOARD_WIDTH)
-                    grid[startY][startX + i] = colorSymbol; // Top side
+            if (startY >= 0 && startY < BOARD_HEIGHT) {
+                if (startX + i >= 0 && startX + i < BOARD_WIDTH) {
+                    grid[startY][startX + i]=symbol; // Store the symbol for top border
+                }
 
                 // Bottom border
-                if (startY + sideInt - 1 < BOARD_HEIGHT && startX + i < BOARD_WIDTH)
-                    grid[startY + sideInt - 1][startX + i] = colorSymbol; // Bottom side
+                if (startY + sideInt - 1 >= 0 && startY + sideInt - 1 < BOARD_HEIGHT &&
+                    startX + i >= 0 && startX + i < BOARD_WIDTH) {
+                    grid[startY + sideInt - 1][startX + i]=symbol; // Store the symbol for bottom border
+                }
             }
         }
 
         for (int i = 0; i < sideInt; ++i) {
             // Left border
-            if (startY + i < BOARD_HEIGHT && startX < BOARD_WIDTH)
-                grid[startY + i][startX] = colorSymbol; // Left side
+            if (startY + i >= 0 && startY + i < BOARD_HEIGHT && startX >= 0 && startX < BOARD_WIDTH) {
+                grid[startY + i][startX]=symbol; // Store the symbol for left border
+            }
 
             // Right border
-            if (startY + i < BOARD_HEIGHT && startX + sideInt - 1 < BOARD_WIDTH)
-                grid[startY + i][startX + sideInt - 1] = colorSymbol; // Right side
+            if (startY + i >= 0 && startY + i < BOARD_HEIGHT &&
+                startX + sideInt - 1 >= 0 && startX + sideInt - 1 < BOARD_WIDTH) {
+                grid[startY + i][startX + sideInt - 1]=symbol; // Store the symbol for right border
+            }
         }
-    }
 
+    }
 
 };
 class Rectangle : public Shapes {
@@ -276,7 +325,7 @@ public:
     }
     string getInfo() const override {
         return "Rectangle: top-left corner (" + std::to_string(x) + ", " + std::to_string(y) +
-            "), width " + std::to_string(width) + ", height " + std::to_string(height) +" Color=" + color + " FillMode=" + fillMode ;
+            "), width " + std::to_string(width) + ", height " + std::to_string(height) + " Color=" + color + " FillMode=" + fillMode;
     }
     string getLoad() const override {
         return "Rectangle: " + to_string(getID()) + " " + to_string(getX()) + " " + to_string(getY()) + " " + to_string(width) + " " + to_string(height) + " " + color + " " + fillMode;
@@ -284,16 +333,18 @@ public:
     string getShape() const override {
         return "rectangle";
     }
-    void drawOnBoard(vector<vector<char>>& grid) const override {
+    void drawOnBoard(vector<vector<string>>& grid) const override {
         int startX = x;
         int startY = y;
         int heightInt = height;
         int widthInt = width;
-
-        // Determine the drawing symbol based on the shape's color
+        std::string colorCode = getColorCode(color);
+        std::string resetCode = "\033[0m";
         char colorSymbol = color.empty() ? '*' : color[0]; // Default to '*' if color is empty
+        string symbol = colorCode + std::string(1, colorSymbol) + resetCode;
+
+        // Fill the rectangle
         if (fillMode == "fill") {
-            // Fill the rectangle
             for (int i = 0; i < heightInt; ++i) {
                 for (int j = 0; j < widthInt; ++j) {
                     int posX = startX + j; // Calculate x position
@@ -301,36 +352,40 @@ public:
 
                     // Check bounds before filling
                     if (posX >= 0 && posX < grid[0].size() && posY < grid.size()) {
-                        grid[posY][posX] = colorSymbol; // Fill the rectangle with the color symbol
+                        grid[posY][posX]=colorSymbol; // Fill the rectangle with the color symbol
                     }
                 }
             }
-
         }
-        
+
         // Optionally, you can still draw the outline if needed
         for (int i = 0; i < widthInt; ++i) {
             // Top border
             if (startY < grid.size()) {
-                if (startX + i < grid[0].size())
-                    grid[startY][startX + i] = colorSymbol; // Top side
+                if (startX + i < grid[0].size()) {
+                    grid[startY][startX + i]=colorSymbol; // Top side
+                }
 
                 // Bottom border
-                if (startY + heightInt - 1 < grid.size() && startX + i < grid[0].size())
-                    grid[startY + heightInt - 1][startX + i] = colorSymbol; // Bottom side
+                if (startY + heightInt - 1 < grid.size() && startX + i < grid[0].size()) {
+                    grid[startY + heightInt - 1][startX + i]=colorSymbol; // Bottom side
+                }
             }
         }
 
         for (int i = 0; i < heightInt; ++i) {
             // Left border
-            if (startY + i < grid.size() && startX < grid[0].size())
-                grid[startY + i][startX] = colorSymbol; // Left side
+            if (startY + i < grid.size() && startX < grid[0].size()) {
+                grid[startY + i][startX]=colorSymbol; // Left side
+            }
 
             // Right border
-            if (startY + i < grid.size() && startX + widthInt - 1 < grid[0].size())
-                grid[startY + i][startX + widthInt - 1] = colorSymbol; // Right side
+            if (startY + i < grid.size() && startX + widthInt - 1 < grid[0].size()) {
+                grid[startY + i][startX + widthInt - 1]=colorSymbol; // Right side
+            }
         }
     }
+
     void setDimensions(double w, double h) {
         width = w;
         height = h;
@@ -359,8 +414,11 @@ public:
         x2 = z;
         y2 = t;
     }
-    void drawOnBoard(vector<vector<char>>& grid) const override {
-        char colorSymbol = color.empty() ? '*' : color[0]; // Default to '*' if color is empty
+    void drawOnBoard(vector<vector<string>>& grid) const override {
+        std::string colorCode = getColorCode(color);
+        std::string resetCode = "\033[0m";
+        char symbolB = color.empty() ? '*' : color[0]; // Default to '*' if color is empty
+        string symbol = colorCode + std::string(1, symbolB) + resetCode;
         int dx = abs(x2 - x1);
         int dy = abs(y2 - y1);
         int sx = (x1 < x2) ? 1 : -1;
@@ -372,7 +430,7 @@ public:
 
         while (true) {
             if (x >= 0 && x < BOARD_WIDTH && y >= 0 && y < BOARD_HEIGHT) {
-                grid[y][x] = colorSymbol;
+                grid[y][x] = symbol;
             }
 
             if (x == x2 && y == y2) break;
@@ -394,7 +452,7 @@ public:
         color = newColor;
     }
 
-    // Метод для отримання інформації про фігуру
+ 
     string getInfo() const override {
         return "Line: from (" + std::to_string(x1) + ", " + std::to_string(y1) + ") to (" +
             std::to_string(x2) + ", " + std::to_string(y2) + ")" +
@@ -408,12 +466,12 @@ public:
 
 class Board {
 private:
-    vector<vector<char>> grid;  // 2D сітка для дошки
+    vector<vector<string>> grid; 
     map<int, std::unique_ptr<Shapes>> shapes;    
     int nextID;
     int lastSelectedId;
 public:
-    Board() : grid(BOARD_HEIGHT, vector<char>(BOARD_WIDTH, ' ')), nextID(0), lastSelectedId(-1) {}
+    Board() : grid(BOARD_HEIGHT, std::vector<std::string>(BOARD_WIDTH, " ")), nextID(0), lastSelectedId(-1) {}
 
     bool isOccupied(int x, int y, const string& type, double param1 = 0, double param2 = 0) {
         for (const auto& shapePair : shapes) {
@@ -443,6 +501,7 @@ public:
                     }
                     else if (type == "rectangle") {
                         const Rectangle* rectangle = dynamic_cast<const Rectangle*>(shape);
+
                         if (rectangle && rectangle->getShape() == type && rectangle->getX() == x && rectangle->getY() == y &&
                             rectangle->getInfo().find(to_string(param1)) != string::npos && rectangle->getInfo().find(to_string(param2)) != string::npos) {
                             return true;
@@ -472,9 +531,9 @@ public:
         }
         cout << "+" << "\n";
 
-        for (auto& row : grid) {
+        for (const auto& row : grid) {
             cout << "|";
-            for (char c : row) {
+            for (const string& c : row) {
                 cout << c;
             }
             cout << "|" << "\n";
@@ -488,11 +547,11 @@ public:
     }
     void draw() {
         for (auto& row : grid) {
-            fill(row.begin(), row.end(), ' ');
+            fill(row.begin(), row.end(), " ");
         }
 
         for (const auto& shapePair : shapes) {
-            shapePair.second->drawOnBoard(grid);  
+            shapePair.second->drawOnBoard(grid);
         }
     }
 
@@ -702,29 +761,34 @@ public:
 
     void select(int x, int y) {
         bool found = false;
-        for (const auto& shapePair : shapes) {
-            if (shapePair.second->containsPoint(x, y)) { // Assume containsPoint checks if a shape contains the point
-                cout << shapePair.second->getInfo() << endl;
-                lastSelectedId = shapePair.first;
+        for (auto it = shapes.rbegin(); it != shapes.rend(); ++it) { 
+            if (it->second->containsPoint(x, y)) {
+                cout << it->second->getInfo() << endl; 
+                lastSelectedId = it->first; 
                 found = true;
                 break;
             }
         }
         if (!found) {
-            cout << "Shape was not found at coordinates (" << x << ", " << y << ").\n";
+            cout << "No shape found at point (" << x << ", " << y << ").\n";
         }
     }
+
     int getLastSelectedId() const {
         return lastSelectedId; // Method to get the last selected shape ID
     }
-    void remove(int id) {
-        auto it = shapes.find(id);
+    void remove() {
+        if (lastSelectedId == -1) {
+            std::cout << "No shape selected.\n";
+            return;
+        }
+        auto it = shapes.find(lastSelectedId);
         if (it != shapes.end()) {
-            shapes.erase(it); // Remove the shape from the collection
-            cout << "Shape with ID " << id << " removed.\n";
+            shapes.erase(it); 
+            cout << "Shape with ID " << lastSelectedId << " removed.\n";
         }
         else {
-            cout << "Shape with ID " << id << " not found.\n";
+            cout << "Shape with ID " << lastSelectedId << " not found.\n";
         }
     }
     void paint(const std::string& color) {
@@ -752,21 +816,17 @@ public:
         if (it != shapes.end()) {
             Shapes* shape = it->second.get();
 
-            // Check if the shape will go out of bounds
             if (newX < 0 || newX >= BOARD_WIDTH || newY < 0 || newY >= BOARD_HEIGHT) {
                 std::cout << "Error: shape will go out of the board.\n";
                 return;
             }
 
-            // Move the shape
-            shape->setX(newX); // Assuming setX is a method in Shapes or its derived classes
-            shape->setY(newY); // Assuming setY is a method in Shapes or its derived classes
+            shape->setX(newX); 
+            shape->setY(newY); 
 
-            // Update selected shape to foreground (optional implementation based on your requirements)
-            // Bring shape to foreground if needed
-            lastSelectedId = lastSelectedId; // In this case, we keep it the same
+            lastSelectedId = lastSelectedId; 
 
-            std::cout << lastSelectedId << " " << shape->getShape() << " moved.\n"; // Output the move
+            std::cout << lastSelectedId << " " << shape->getShape() << " moved.\n"; 
         }
         else {
             std::cout << "Shape with ID " << lastSelectedId << " not found.\n";
@@ -837,21 +897,25 @@ public:
         }
     }
 };
+
 class CommandLine {
 private:
     Board board;
-    int lastSelectedId;  // Variable to store the last selected shape's ID
+    int lastSelectedId;  
     bool shapeSelected;
 public:
     CommandLine() : lastSelectedId(-1), shapeSelected(false) {}
+
     void run() {
         string command;
         while (true) {
+            
             cout << "> ";
             cin >> command;
+
             if (command == "draw") {
-                board.draw();
-                board.print();
+                board.draw(); 
+                board.print(); 
             }
             else if (command == "list") {
                 board.list();
@@ -864,41 +928,36 @@ public:
                 cout << "> Line x1 y1 x2 y2" << endl;
             }
             else if (command == "add") {
-                string shapeType;
-                string color, fillMode;
+                string shapeType, color, fillMode;
+                cin >> fillMode >> color >> shapeType;
 
-                cin >> fillMode>> color >> shapeType;
                 if (shapeType == "circle") {
-                    double  r;
+                    double r;
                     int x, y;
-                    cin >> x >> y >> r  ;
+                    cin >> x >> y >> r;
                     board.addCircle(x, y, r, color, fillMode);
                 }
                 else if (shapeType == "square") {
-                    double  s;
+                    double s;
                     int x, y;
-                    
-                    cin >> x >> y >> s ;
+                    cin >> x >> y >> s;
                     board.addSquare(x, y, s, color, fillMode);
                 }
                 else if (shapeType == "line") {
                     int x1, y1, x2, y2;
-                   
                     cin >> x1 >> y1 >> x2 >> y2;
                     board.addLine(x1, y1, x2, y2, color, fillMode);
                 }
                 else if (shapeType == "rectangle") {
                     double w, h;
                     int x, y;
-                   
-                    cin >> x >> y >> w >> h ;
+                    cin >> x >> y >> w >> h;
                     board.addRectangle(x, y, w, h, color, fillMode);
                 }
                 else if (shapeType == "triangle") {
-                    double  h;
+                    double h;
                     int x, y;
-                    
-                    cin >> x >> y >> h ;
+                    cin >> x >> y >> h;
                     board.addTriangle(x, y, h, color, fillMode);
                 }
             }
@@ -919,13 +978,13 @@ public:
                 board.load(filepath);
             }
             else if (command == "exit") {
+          
                 break;
             }
             else if (command == "select") {
                 string selection;
-                getline(cin, selection); // Read the entire line of input
+                getline(cin, selection); 
 
-                // Split the input based on spaces
                 stringstream ss(selection);
                 vector<string> params;
                 string param;
@@ -933,102 +992,91 @@ public:
                     params.push_back(param);
                 }
 
-                // Determine if we have one or two parameters
-                if (params.size() == 1) { // Only one parameter, must be an ID
-                    if (isdigit(params[0][0]) || (params[0][0] == '-' && params[0].length() > 1)) { // Check for a valid ID
-                        int id = stoi(params[0]); // Convert to integer
-                        board.select(id); // Call select by ID
+                if (params.size() == 1) { 
+                    if (isdigit(params[0][0]) ) {
+                        int id = stoi(params[0]); 
+                        board.select(id); 
                         lastSelectedId = id;
-                        shapeSelected = true; // Update selected state
+                        shapeSelected = true; 
                     }
                     else {
-                        cout << "Invalid ID.\n"; // Handle invalid input
+                        cout << "Invalid ID.\n"; 
                     }
                 }
-                else if (params.size() == 2) { // Two parameters, treat as coordinates
+                else if (params.size() == 2) { 
                     int x, y;
                     try {
-                        x = stoi(params[0]); // Convert first parameter to int
-                        y = stoi(params[1]); // Convert second parameter to int
-
-                        board.select(x, y); // Call select by coordinates
+                        x = stoi(params[0]); 
+                        y = stoi(params[1]); 
+                        board.select(x, y); 
                         if (shapeSelected) {
-                            lastSelectedId = board.getLastSelectedId(); // Get last selected ID if applicable
+                            lastSelectedId = board.getLastSelectedId(); 
                         }
                     }
                     catch (const std::invalid_argument&) {
-                        cout << "Invalid coordinates.\n"; // Handle conversion error
+                        cout << "Invalid coordinates.\n";
                     }
                     catch (const std::out_of_range&) {
-                        cout << "Coordinates out of range.\n"; // Handle range error
+                        cout << "Coordinates out of range.\n"; 
                     }
                 }
                 else {
-                    cout << "Invalid selection parameters.\n"; // Handle too many parameters
+                    cout << "Invalid selection parameters.\n"; 
                 }
             }
             else if (command == "edit") {
-
                 string selection;
-                getline(cin, selection); // Read the entire line of input
+                getline(cin, selection); 
 
-                // Split the input based on spaces
                 stringstream ss(selection);
                 vector<string> params;
                 string param;
                 while (ss >> param) {
                     params.push_back(param);
                 }
-                if (params.size() == 1) { // Only one parameter, must be an ID
+                if (params.size() == 1) { 
                     double param1 = stod(params[0]);
                     board.edit(param1);
                 }
-                else if (params.size() == 2) { // Two parameters, treat as coordinates
-                    double param1 = stod(params[0]); // Convert first parameter to int
+                else if (params.size() == 2) { 
+                    double param1 = stod(params[0]); 
                     double param2 = stod(params[1]);
                     board.edit(param1, param2);
                 }
-                else if (params.size() == 4) { // Two parameters, treat as coordinates
-                    double param1 = stod(params[0]); // Convert first parameter to int
-                    double param2 = stod(params[1]);
-                    double param3 = stod(params[2]); // Convert first parameter to int
-                    double param4 = stod(params[3]);
+                else if (params.size() == 4) { 
+                    double param1 = stod(params[0]); 
+                    double param2 = stod(params[1]); 
+                    double param3 = stod(params[2]); 
+                    double param4 = stod(params[3]); 
                     board.edit(param1, param2, param3, param4);
                 }
-                
             }
             else if (command == "remove") {
-                if (shapeSelected) {
-                    // Remove the selected shape from the board
-                    board.remove(lastSelectedId); // Assume you have a remove method in your Board class
-                    cout << "[ID " << lastSelectedId << "] shape removed." << endl;
-
-                    // Reset selection state
+                if (board.getLastSelectedId() == -1) {
+                    cout << "No shape selected to remove.\n";
+                }
+                else {
+                    board.remove();
                     lastSelectedId = -1;
                     shapeSelected = false;
                 }
-                else {
-                    cout << "No shape selected to remove.\n";
-                }
+                
             }
             else if (command == "move") {
                 int newX, newY;
-                cin >> newX >> newY; // Read new coordinates
+                cin >> newX >> newY; 
 
                 if (board.getLastSelectedId() == -1) {
-                    cout << "No shape selected.\n"; // Check if a shape is selected
+                    cout << "No shape selected.\n"; 
                 }
                 else {
-                    board.move(newX, newY); // Call the move function on the board
+                    board.move(newX, newY); 
                 }
-                }
-
+            }
             else if (command == "paint") {
                 string newColor;
                 cin >> newColor;
-
-                // Call the paint method on the board
-                board.paint(newColor);
+                board.paint(newColor); 
             }
             else {
                 cout << "Unknown command.\n";
@@ -1038,6 +1086,7 @@ public:
 };
 
 int main() {
+   
     CommandLine cmd;
     cmd.run();
     return 0;
