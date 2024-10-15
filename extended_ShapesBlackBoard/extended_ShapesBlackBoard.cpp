@@ -8,7 +8,7 @@
 #include <sstream>
 #include <cctype>
 #include <memory>
-
+const double PI = 3.14159265358979323846;
 
 using namespace std;
 
@@ -159,7 +159,12 @@ public:
         
     }
     void setDimensions( double h) {
-        height = h;
+        if (0.5*h*(2 * h - 1 )< BOARD_HEIGHT * BOARD_WIDTH) {
+            height = h;
+        }
+        else {
+            cout << "error: shape will go out of the board" << endl;
+        }
     }
     void setColor(const std::string& newColor) override {
         color = newColor;
@@ -220,7 +225,13 @@ public:
     }
 
     void setDimensions( double r) {
-        radius = r;
+        if (PI * r * r < BOARD_HEIGHT * BOARD_WIDTH) {
+            radius = r;
+        }
+        else {
+            cout << "error: shape will go out of the board" << endl;
+        }
+        
     }
     void setColor(const std::string& newColor) override {
         color = newColor;
@@ -254,7 +265,13 @@ public:
         color = newColor;
     }
     void setDimensions(double s) {
-        side = s;
+        if (s * s < BOARD_HEIGHT * BOARD_WIDTH) {
+            side = s;
+        }
+        else {
+            cout << "error: shape will go out of the board" << endl;
+        }
+       
     }
     void drawOnBoard(vector<vector<string>>& grid) const override {
         int startX = x;
@@ -352,7 +369,7 @@ public:
 
                     // Check bounds before filling
                     if (posX >= 0 && posX < grid[0].size() && posY < grid.size()) {
-                        grid[posY][posX]=colorSymbol; // Fill the rectangle with the color symbol
+                        grid[posY][posX]=symbol; // Fill the rectangle with the color symbol
                     }
                 }
             }
@@ -363,12 +380,12 @@ public:
             // Top border
             if (startY < grid.size()) {
                 if (startX + i < grid[0].size()) {
-                    grid[startY][startX + i]=colorSymbol; // Top side
+                    grid[startY][startX + i]=symbol; // Top side
                 }
 
                 // Bottom border
                 if (startY + heightInt - 1 < grid.size() && startX + i < grid[0].size()) {
-                    grid[startY + heightInt - 1][startX + i]=colorSymbol; // Bottom side
+                    grid[startY + heightInt - 1][startX + i]=symbol; // Bottom side
                 }
             }
         }
@@ -376,19 +393,26 @@ public:
         for (int i = 0; i < heightInt; ++i) {
             // Left border
             if (startY + i < grid.size() && startX < grid[0].size()) {
-                grid[startY + i][startX]=colorSymbol; // Left side
+                grid[startY + i][startX]=symbol; // Left side
             }
 
             // Right border
             if (startY + i < grid.size() && startX + widthInt - 1 < grid[0].size()) {
-                grid[startY + i][startX + widthInt - 1]=colorSymbol; // Right side
+                grid[startY + i][startX + widthInt - 1]=symbol; // Right side
             }
         }
     }
 
     void setDimensions(double w, double h) {
-        width = w;
-        height = h;
+        if (w * h < BOARD_HEIGHT * BOARD_WIDTH) {
+            width = w;
+            height = h;
+        }
+        else {
+            cout << "error: shape will go out of the board" << endl;
+                
+        }
+        
     }
     void setColor(const std::string& newColor) override {
         color = newColor;
@@ -843,6 +867,9 @@ public:
             if (auto* rectangle = dynamic_cast<Rectangle*>(shape)) {
                 rectangle->setDimensions(param1, param2);
                 cout << "Size of rectangle changed." << endl;
+            }
+            else {
+                cout << "error invalid type" << endl;
             }
         }
         else {
